@@ -5,14 +5,8 @@ const {
 
 async function saveTax(req, res) {
   try {
-    const { userId, income, deductions = 0, newTax, oldTax } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
-    }
+    const { income, deductions = 0, newTax, oldTax } = req.body;
+    const userId = String(req.user._id);
 
     const profile = await saveTaxProfile({
       userId,
@@ -36,14 +30,7 @@ async function saveTax(req, res) {
 
 async function getHistory(req, res) {
   try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
-    }
+    const userId = String(req.user._id);
 
     const history = await getUserTaxHistory(userId);
 

@@ -1,28 +1,50 @@
-const { optimizeDeductions } = require("../services/optimizationService");
+const { optimizeTax: optimizeTaxEngine } = require("../services/optimizerService");
 
-function optimizeTax(req, res) {
+function createHttpError(message, statusCode = 500) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function optimizeTax(req, res, next) {
   try {
     const { income, deductions = {} } = req.body;
-    const parsedIncome = Number(income);
+    const result = optimizeTaxEngine(income, deductions, 0);
 
-    if (!Number.isFinite(parsedIncome) || parsedIncome <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Income must be a positive number",
-      });
-    }
+    const section80CUsed = Number(result?.existingDeductions?.section80C || 0);
+    const section80CLimit = Number(result?.limits?.section80C || 150000);
+    const unused80C = Math.max(0, section80CLimit - section80CUsed);
 
-    const result = optimizeDeductions(parsedIncome, deductions);
+    const suggestions =
+      unused80C > 0
+        ? [
+            {
+              section: "80C",
+              additionalAmountPossible: unused80C,
+              recommendation:
+                "Consider ELSS, PPF, EPF, life insurance premium, or principal repayment on home loan.",
+            },
+          ]
+        : [];
 
     return res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        income: Number(income),
+        deductions: {
+          section80C: section80CUsed,
+        },
+        limits: {
+          section80C: section80CLimit,
+        },
+        unused80C,
+        suggestions,
+        // Keep richer optimizer payload for advanced UI use/debugging.
+        optimization: result,
+      },
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to optimize deductions",
-    });
+    return next(createHttpError(error.message || "Failed to optimize deductions", error.statusCode));
   }
 }
 

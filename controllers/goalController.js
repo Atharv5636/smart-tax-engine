@@ -1,48 +1,40 @@
 const { optimizeForGoal } = require("../services/goalService");
 
-function optimizeGoal(req, res) {
+function createHttpError(message, statusCode = 500) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function optimizeGoal(req, res, next) {
   try {
-    const { income, currentDeductions = 0, targetTax } = req.body;
-    const parsedIncome = Number(income);
-    const parsedCurrentDeductions = Number(currentDeductions);
+    const { income, currentDeductions, targetTax } = req.body;
+    const hasMissingField = income === undefined || targetTax === undefined;
+
+    if (hasMissingField) {
+      throw createHttpError("Income and targetTax are required for goal optimization", 400);
+    }
+
     const parsedTargetTax = Number(targetTax);
 
-    if (!Number.isFinite(parsedIncome) || parsedIncome <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Income must be a positive number",
-      });
-    }
-
-    if (!Number.isFinite(parsedCurrentDeductions) || parsedCurrentDeductions < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "currentDeductions must be a non-negative number",
-      });
-    }
-
     if (!Number.isFinite(parsedTargetTax) || parsedTargetTax < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "targetTax must be a non-negative number",
-      });
+      throw createHttpError("targetTax must be a number greater than or equal to 0", 400);
     }
 
-    const result = optimizeForGoal(
-      parsedIncome,
-      parsedCurrentDeductions,
-      parsedTargetTax
-    );
+    const safeCurrentDeductions = Number(currentDeductions || 0);
+    const result = optimizeForGoal(income, safeCurrentDeductions, parsedTargetTax);
 
     return res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        currentTax: result.currentTax,
+        optimizedTax: result.optimizedTax,
+        requiredDeductions: result.requiredDeductions,
+        goalAchieved: result.goalAchieved,
+      },
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to optimize tax goal",
-    });
+    return next(createHttpError(error.message || "Failed to optimize tax goal", error.statusCode));
   }
 }
 
