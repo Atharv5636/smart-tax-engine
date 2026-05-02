@@ -213,6 +213,31 @@ npm test
 npm run test:golden
 ```
 
+## Design Tradeoffs
+
+- Simplicity first: layered architecture keeps controllers thin and logic in services, but some endpoints still duplicate normalization logic.
+- Fast delivery over strict domain modeling: tax profile stores `deductions` as a single number for simple history snapshots.
+- Hybrid extraction approach for Form 16: regex fallback improves resilience when AI output is invalid, at the cost of partial-field extraction in some document formats.
+- Stateless JWT auth: easy horizontal scaling, but no token revocation list is currently implemented.
+
+## Current Limitations
+
+- No rate limiting or request throttling on public endpoints.
+- Input validation is solid for numeric fields, but schema-level validation is not centralized (for example, no shared request DTO schema library).
+- No background job queue for heavy tasks like PDF parsing/report generation under peak load.
+- Limited observability: logs are console-based; no structured log pipeline or tracing.
+- Upload storage is local filesystem (`uploads/`), which is not ideal for multi-instance deployments.
+
+## Future Improvements
+
+- Add API hardening: rate limiting, helmet headers, stricter CORS defaults, and abuse protection.
+- Introduce schema validation with a shared contract layer (for example, Zod/Joi) for all request bodies.
+- Move file storage to object storage (S3-compatible) and run cleanup/processing as async jobs.
+- Add Redis caching for repeated tax simulations and common computations.
+- Add refresh-token strategy and token revocation support for stronger auth control.
+- Improve observability with structured logging, metrics, and distributed tracing.
+- Expand test coverage with integration tests for protected routes and upload/report flows.
+
 ## Notes
 
 - `POST /docs/upload` accepts only PDF files up to 10 MB.
